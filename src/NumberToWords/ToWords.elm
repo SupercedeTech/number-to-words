@@ -9,6 +9,7 @@ module NumberToWords.ToWords exposing (toWords)
 import NumberToWords.ToSafeNumber exposing (maxSafeInteger, toSafeNumber)
 import NumberToWords.MakeOrdinal exposing (makeOrdinal)
 import NumberToWords.Error exposing (NTWError(..))
+import NumberToWords.Util exposing (cond)
 
 import Array exposing (Array)
 
@@ -68,52 +69,37 @@ generateWords number words =
     if List.isEmpty words
     then Ok "zero"
     else Ok (String.join " " words
-      |> String.replace " - " "-"
-      |> Regex.replace endByComma (\_ -> ""))
+            |> String.replace " - " "-"
+            |> Regex.replace endByComma (\_ -> ""))
   else
-    -- If negative, prepend "minus"
-    if (number < 0)
-    then generateWords (Basics.abs number) ["minus"]
-    else
-      if number < 20
-      then generateWords 0 (List.append words [Array.get number lessThanTwenty |> Maybe.withDefault ""])
-      else
-        if number < oneHundred
-        then
-          let
-            remainder = Basics.remainderBy ten number
-            word = Array.get (number // ten) tenthsLessThanHundred
-          in
-            if remainder > 0
-            then generateWords 0 (
-              List.concat
-                [ words
-                , [ word |> Maybe.withDefault "" ]
-                , [ Array.get remainder lessThanTwenty |> Maybe.map (\v -> "- " ++ v) |> Maybe.withDefault "" ]
-                ]
-              )
-            else generateWords 0 (List.append words [word |> Maybe.withDefault ""])
-        else
-          let genPart = generatePart number words
-          in
-          if number < oneThousand
-          then genPart oneHundred " hundred"
-          else
-            if number < oneMillion
-            then genPart oneThousand " thousand,"
-            else
-              if number < oneBillion
-              then genPart oneMillion " million,"
-              else
-                if number < oneTrillion
-                then genPart oneBillion " billion,"
-                else
-                  if number < oneQuadrillion
-                  then genPart oneTrillion " trillion,"
-                  else
-                    if number <= max
-                    then genPart oneQuadrillion " quadrillion,"
-                    else Err TooBig
+    let genPart = generatePart number words
+    in cond (Err TooBig) number
+         [ ((>) 0, \n -> generateWords (Basics.abs n) ["minus"]) -- If negative, prepend "minus"
+         , ((>) 20, \n -> generateWords 0 (List.append words [Array.get n lessThanTwenty |> Maybe.withDefault ""]))
+         , ((>) oneHundred, genLessThanOneHundred words)
+         , ((>) oneThousand,  (\_ -> genPart oneHundred " hundred"))
+         , ((>) oneMillion, (\_ -> genPart oneThousand " thousand,"))
+         , ((>) oneBillion, (\_ -> genPart oneMillion " million,"))
+         , ((>) oneTrillion, (\_ -> genPart oneBillion " billion,"))
+         , ((>) oneQuadrillion, (\_ -> genPart oneTrillion " trillion,"))
+         , ((>=) max, (\_ -> genPart oneQuadrillion " quadrillion,"))
+         ]
+
+genLessThanOneHundred : List String -> Int -> Result NTWError String
+genLessThanOneHundred words number =
+  let
+    remainder = Basics.remainderBy ten number
+    word = Array.get (number // ten) tenthsLessThanHundred
+  in
+    if remainder > 0
+    then generateWords 0 (
+      List.concat
+        [ words
+        , [ word |> Maybe.withDefault "" ]
+        , [ Array.get remainder lessThanTwenty |> Maybe.map (\v -> "- " ++ v) |> Maybe.withDefault "" ]
+        ]
+      )
+    else generateWords 0 (List.append words [word |> Maybe.withDefault ""])
 
 generatePart : Int -> List String -> Int -> String -> Result NTWError String
 generatePart number words factor name =

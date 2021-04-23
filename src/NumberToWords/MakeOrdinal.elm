@@ -1,8 +1,8 @@
 module NumberToWords.MakeOrdinal exposing (makeOrdinal)
 
 import Dict exposing (Dict)
-
 import Regex exposing (Regex)
+import NumberToWords.Util exposing (cond)
 
 mkRegex : String -> Regex
 mkRegex str = Maybe.withDefault Regex.never <|
@@ -41,18 +41,17 @@ ordinalLessThanThirteen =
 
 makeOrdinal : String -> String
 makeOrdinal words =
-  -- Ends with *00 (100, 1000, etc.) or *teen (13, 14, 15, 16, 17, 18, 19)
-  if (Regex.contains endsWithDoubleZeroPattern words) || (Regex.contains endsWithTeenPattern words)
-  then words ++ "th"
-  else
-    -- Ends with *y (20, 30, 40, 50, 60, 70, 80, 90)
-    if Regex.contains endsWithYPattern words
-    then Regex.replace endsWithYPattern (\_ -> "ieth") words
-    else
-    -- Ends with one through twelve
-      if Regex.contains endsWithZeroThroughTwelvePattern words
-      then Regex.replace endsWithZeroThroughTwelvePattern replaceWithOrdinalVariant words
-      else words
+  cond words words
+    [ -- Ends with *00 (100, 1000, etc.) or *teen (13, 14, 15, 16, 17, 18, 19)
+     (\w -> (Regex.contains endsWithDoubleZeroPattern w) || (Regex.contains endsWithTeenPattern w), \w -> w ++ "th")
+    , -- Ends with *y (20, 30, 40, 50, 60, 70, 80, 90)
+     (\w -> Regex.contains endsWithYPattern w, \w -> Regex.replace endsWithYPattern (\_ -> "ieth") w)
+    , -- Ends with one through twelve
+     (\w -> Regex.contains endsWithZeroThroughTwelvePattern w
+     , \w -> Regex.replace endsWithZeroThroughTwelvePattern replaceWithOrdinalVariant w
+     )
+    ]
+
 
 replaceWithOrdinalVariant : Regex.Match -> String
 replaceWithOrdinalVariant ({ match }) =
