@@ -6,7 +6,7 @@
     "license": "MIT",
     "elm-version": "0.19.0 <= v < 0.20.0",
     "version": "1.0.0",
-    "name": "riskbook/number-to-words",
+    "name": "SupercedeTech/number-to-words",
     "summary": "Package contains some util methods for converting numbers into words.",
     "exposed-modules": [
         "NumberToWords.ToWords",
